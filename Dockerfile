@@ -41,8 +41,8 @@ LABEL org.opencontainers.image.description="Container with Azure CLI and grafana
 # Copy grafanactl from downloader stage
 COPY --from=downloader /tmp/grafanactl /usr/local/bin/grafanactl
 
-# Install jq for JSON processing
-RUN apk add --no-cache jq bash
+# Install jq for JSON processing (azure-cli uses Mariner Linux with tdnf)
+RUN tdnf install -y jq && tdnf clean all
 
 WORKDIR /workspace
 
