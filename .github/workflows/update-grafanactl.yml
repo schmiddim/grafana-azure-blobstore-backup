@@ -1,0 +1,87 @@
+# Automatic grafanactl version updates
+#
+# This workflow:
+# 1. Checks weekly for new grafanactl releases
+# 2. Updates the Dockerfile ARG if a new version is available
+# 3. Commits directly to main and triggers Docker build
+#
+# Required secrets:
+#   - DOCKERHUB_USERNAME: Docker Hub username
+#   - DOCKERHUB_TOKEN: Docker Hub access token
+
+name: Update grafanactl
+
+on:
+  schedule:
+    - cron: '0 5 * * 1'  # Mondays 05:00 UTC (before Dependabot at 06:00)
+  workflow_dispatch:      # Manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  update-grafanactl:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get latest grafanactl version
+        id: latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LATEST=$(gh release view --repo grafana/grafana-cli --json tagName -q .tagName)
+          echo "version=$LATEST" >> $GITHUB_OUTPUT
+          echo "Latest grafanactl version: $LATEST"
+
+      - name: Get current version from Dockerfile
+        id: current
+        run: |
+          CURRENT=$(grep "^ARG GRAFANACTL_VERSION=" Dockerfile | cut -d= -f2)
+          echo "version=$CURRENT" >> $GITHUB_OUTPUT
+          echo "Current grafanactl version: $CURRENT"
+
+      - name: Check if update is needed
+        id: check
+        run: |
+          if [ "${{ steps.latest.outputs.version }}" != "${{ steps.current.outputs.version }}" ]; then
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "Update needed: ${{ steps.current.outputs.version }} -> ${{ steps.latest.outputs.version }}"
+          else
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+            echo "Already up to date"
+          fi
+
+      - name: Update Dockerfile
+        if: steps.check.outputs.needs_update == 'true'
+        run: |
+          sed -i "s/^ARG GRAFANACTL_VERSION=.*/ARG GRAFANACTL_VERSION=${{ steps.latest.outputs.version }}/" Dockerfile
+          echo "Updated Dockerfile:"
+          grep "ARG GRAFANACTL_VERSION" Dockerfile
+
+      - name: Commit and push changes
+        if: steps.check.outputs.needs_update == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Dockerfile
+          git commit -m "chore(deps): update grafanactl to ${{ steps.latest.outputs.version }}"
+          git push
+
+      # Docker build is triggered by the push to main via dependabot-docker.yml
+      - name: Summary
+        run: |
+          echo "## grafanactl Version Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| | Version |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Current | \`${{ steps.current.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Latest | \`${{ steps.latest.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check.outputs.needs_update }}" == "true" ]; then
+            echo "**Status:** Updated and pushed to main. Docker build will be triggered." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Status:** Already up to date. No changes made." >> $GITHUB_STEP_SUMMARY
+          fi
