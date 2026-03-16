@@ -26,30 +26,59 @@ permissions:
 
 jobs:
   # ==========================================================================
-  # Job 1: Auto-merge Dependabot PRs
+  # Job 1: Auto-merge Dependabot PRs (skip workflow file changes)
   # ==========================================================================
   auto-merge:
     runs-on: ubuntu-latest
     if: github.actor == 'dependabot[bot]' && github.event_name == 'pull_request'
     
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Check if PR contains workflow changes
+        id: check-workflows
+        run: |
+          FILES=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json files -q '.files[].path')
+          if echo "$FILES" | grep -q "^\.github/workflows/"; then
+            echo "has_workflow_changes=true" >> $GITHUB_OUTPUT
+            echo "PR contains workflow changes - skipping auto-merge"
+          else
+            echo "has_workflow_changes=false" >> $GITHUB_OUTPUT
+            echo "No workflow changes - proceeding with auto-merge"
+          fi
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Dependabot metadata
+        if: steps.check-workflows.outputs.has_workflow_changes == 'false'
         id: metadata
         uses: dependabot/fetch-metadata@v2
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Auto-approve Dependabot PR
+        if: steps.check-workflows.outputs.has_workflow_changes == 'false'
         run: gh pr review --approve "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Enable auto-merge for Dependabot PR
+        if: steps.check-workflows.outputs.has_workflow_changes == 'false'
         run: gh pr merge --auto --squash --delete-branch "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip notice for workflow PRs
+        if: steps.check-workflows.outputs.has_workflow_changes == 'true'
+        run: |
+          echo "## Skipped Auto-Merge" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This PR contains workflow file changes and requires manual review." >> $GITHUB_STEP_SUMMARY
 
   # ==========================================================================
   # Job 2: Build and push Docker image after merge
