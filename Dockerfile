@@ -33,7 +33,7 @@ RUN set -eux; \
 # Stage 2: Final image with Azure CLI + grafanactl
 # ============================================================================
 # renovate: datasource=docker depName=mcr.microsoft.com/azure-cli
-FROM mcr.microsoft.com/azure-cli:2.68.0
+FROM mcr.microsoft.com/azure-cli:2.84.0
 
 LABEL org.opencontainers.image.title="grafana-backup"
 LABEL org.opencontainers.image.description="Container with Azure CLI and grafanactl for Grafana dashboard backup/restore"
