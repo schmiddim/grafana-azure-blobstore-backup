@@ -10,7 +10,7 @@
 # renovate: datasource=github-releases depName=grafana/grafana-cli
 ARG GRAFANACTL_VERSION=v0.6.1
 
-FROM alpine:3.21 AS downloader
+FROM alpine:3.23 AS downloader
 
 ARG GRAFANACTL_VERSION
 ARG TARGETARCH
