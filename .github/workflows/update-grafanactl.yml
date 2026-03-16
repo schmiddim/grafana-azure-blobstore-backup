@@ -32,7 +32,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          LATEST=$(gh release view --repo grafana/grafana-cli --json tagName -q .tagName)
+          LATEST=$(gh release view --repo grafana/grafanactl --json tagName -q .tagName)
           echo "version=$LATEST" >> $GITHUB_OUTPUT
           echo "Latest grafanactl version: $LATEST"
 

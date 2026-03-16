@@ -7,8 +7,8 @@
 # ============================================================================
 # Stage 1: Download grafanactl binary
 # ============================================================================
-# renovate: datasource=github-releases depName=grafana/grafana-cli
-ARG GRAFANACTL_VERSION=v0.6.1
+# Dependabot cannot track ARG versions - updated via update-grafanactl.yml workflow
+ARG GRAFANACTL_VERSION=v0.1.9
 
 FROM alpine:3.23 AS downloader
 
@@ -18,14 +18,14 @@ ARG TARGETARCH
 RUN apk add --no-cache curl tar
 
 # Download grafanactl for the target architecture
+# Repo: https://github.com/grafana/grafanactl
 RUN set -eux; \
     case "${TARGETARCH}" in \
-        amd64) ARCH="linux_amd64" ;; \
-        arm64) ARCH="linux_arm64" ;; \
+        amd64) ARCH="Linux_x86_64" ;; \
+        arm64) ARCH="Linux_arm64" ;; \
         *) echo "Unsupported architecture: ${TARGETARCH}" && exit 1 ;; \
     esac; \
-    VERSION="${GRAFANACTL_VERSION#v}"; \
-    curl -fsSL "https://github.com/grafana/grafana-cli/releases/download/${GRAFANACTL_VERSION}/grafanactl_${VERSION}_${ARCH}.tar.gz" \
+    curl -fsSL "https://github.com/grafana/grafanactl/releases/download/${GRAFANACTL_VERSION}/grafanactl_${ARCH}.tar.gz" \
         | tar -xz -C /tmp; \
     chmod +x /tmp/grafanactl
 
