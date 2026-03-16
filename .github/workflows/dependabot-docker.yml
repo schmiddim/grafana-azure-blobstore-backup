@@ -22,7 +22,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  workflows: write
+#  workflows: write
 
 jobs:
   # ==========================================================================
