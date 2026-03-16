@@ -1,5 +1,7 @@
 # grafana-backup
 
+[![Docker Hub](https://img.shields.io/docker/v/schmiddim/grafana-azure-blobstore-backup?label=Docker%20Hub&logo=docker)](https://hub.docker.com/r/schmiddim/grafana-azure-blobstore-backup)
+
 Container image with Azure CLI and grafanactl for Grafana 12+ dashboard operations.
 
 ## Contents
@@ -36,3 +38,9 @@ az storage blob list --account-name xxx --container-name xxx
 Configured for automatic updates of:
 - Azure CLI base image
 - grafanactl version
+
+## Docker
+
+```bash
+docker pull schmiddim/grafana-azure-blobstore-backup:latest
+```
