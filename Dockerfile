@@ -32,8 +32,9 @@ RUN set -eux; \
 # ============================================================================
 # Stage 2: Final image with Azure CLI + grafanactl
 # ============================================================================
-# renovate: datasource=docker depName=mcr.microsoft.com/azure-cli
-FROM mcr.microsoft.com/azure-cli:2.84.0
+# Note: Using 'azurelinux3.0' tag for latest Azure CLI on Azure Linux 3.0
+# Dependabot cannot track this rolling tag - manual updates may be needed
+FROM mcr.microsoft.com/azure-cli:azurelinux3.0
 
 LABEL org.opencontainers.image.title="grafana-backup"
 LABEL org.opencontainers.image.description="Container with Azure CLI and grafanactl for Grafana dashboard backup/restore"
@@ -41,8 +42,8 @@ LABEL org.opencontainers.image.description="Container with Azure CLI and grafana
 # Copy grafanactl from downloader stage
 COPY --from=downloader /tmp/grafanactl /usr/local/bin/grafanactl
 
-# Install jq for JSON processing (azure-cli uses Mariner Linux with tdnf)
-RUN tdnf install -y jq && tdnf clean all
+# Install curl and jq for JSON processing (azure-cli uses Mariner Linux with tdnf)
+RUN tdnf install -y curl jq && tdnf clean all
 
 WORKDIR /workspace
 
