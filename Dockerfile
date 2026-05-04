@@ -8,7 +8,7 @@
 # Stage 1: Download grafanactl binary
 # ============================================================================
 # Dependabot cannot track ARG versions - updated via update-grafanactl.yml workflow
-ARG GRAFANACTL_VERSION=v0.1.9
+ARG GRAFANACTL_VERSION=v0.1.10
 
 FROM alpine:3.23 AS downloader
 
