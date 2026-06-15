@@ -10,7 +10,7 @@
 # Dependabot cannot track ARG versions - updated via update-grafanactl.yml workflow
 ARG GRAFANACTL_VERSION=v0.1.10
 
-FROM alpine:3.23 AS downloader
+FROM alpine:3.24 AS downloader
 
 ARG GRAFANACTL_VERSION
 ARG TARGETARCH
