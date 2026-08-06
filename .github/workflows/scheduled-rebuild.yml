@@ -11,7 +11,7 @@ name: Scheduled Rebuild
 
 on:
   schedule:
-    - cron: '0 7 * * 3'  # Wednesdays 07:00 UTC (after Dependabot Monday runs)
+    - cron: '0 12 6 8 *'  # 2026-08-06 12:00 UTC = 13:00 CET (one-time test) → change back to: 0 7 * * 3
   workflow_dispatch:      # Manual trigger
 
 permissions:
