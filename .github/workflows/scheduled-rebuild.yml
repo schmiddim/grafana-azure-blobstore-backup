@@ -1,0 +1,61 @@
+# Scheduled rebuild for rolling-tag base image (mcr.microsoft.com/azure-cli:azurelinux3.0)
+#
+# azurelinux3.0 is a rolling tag - Microsoft updates it continuously without changing the tag.
+# Dependabot cannot detect these updates. This workflow rebuilds weekly to pick up
+# OS-level security patches and Azure CLI updates from the base image.
+#
+# Bumps patch version on every rebuild → triggers release.yml → new image on GHCR.
+# Uses GH_PAT for tag push so release.yml is triggered automatically.
+
+name: Scheduled Rebuild
+
+on:
+  schedule:
+    - cron: '0 7 * * 3'  # Wednesdays 07:00 UTC (after Dependabot Monday runs)
+  workflow_dispatch:      # Manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required to read all tags
+
+      - name: Bump patch version and push tag
+        id: bump
+        run: |
+          # Get latest semver tag (default v0.0.0 if none exists)
+          LATEST=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || echo "v0.0.0")
+          echo "Latest tag: $LATEST"
+
+          MAJOR=$(echo "$LATEST" | cut -d. -f1 | tr -d 'v')
+          MINOR=$(echo "$LATEST" | cut -d. -f2)
+          PATCH=$(echo "$LATEST" | cut -d. -f3)
+
+          NEW_PATCH=$((PATCH + 1))
+          NEW_TAG="v${MAJOR}.${MINOR}.${NEW_PATCH}"
+          echo "New tag: $NEW_TAG"
+          echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$NEW_TAG"
+          # Use GH_PAT so the tag push triggers release.yml
+          # (GITHUB_TOKEN pushes do not trigger subsequent workflow runs)
+          git push "https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git" "$NEW_TAG"
+
+      - name: Summary
+        run: |
+          echo "## Scheduled Rebuild" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Rebuilding to pick up updates from rolling base image \`mcr.microsoft.com/azure-cli:azurelinux3.0\`." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**New tag:** \`${{ steps.bump.outputs.new_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "release.yml will build and push \`ghcr.io/schmiddim/grafana-azure-blobstore-backup:${{ steps.bump.outputs.new_tag }}\`" >> $GITHUB_STEP_SUMMARY
