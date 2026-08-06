@@ -55,7 +55,7 @@ jobs:
       - name: Dependabot metadata
         if: steps.check-workflows.outputs.has_workflow_changes == 'false'
         id: metadata
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@v3
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
