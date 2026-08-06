@@ -1,0 +1,67 @@
+# Bootstrap: Create initial v1.0.0 release
+#
+# Run this ONCE manually via "Actions → Initial Release → Run workflow"
+# to create the first version tag and trigger the first Docker image build.
+#
+# The workflow is idempotent: if v1.0.0 already exists it will do nothing.
+# After the initial release you can keep or delete this file - it does nothing
+# on its own (no schedule, no push trigger).
+
+name: Initial Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  initial-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if any version tag already exists
+        id: check
+        run: |
+          EXISTING=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
+          if [ -n "$EXISTING" ]; then
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+            echo "existing_tag=$EXISTING" >> $GITHUB_OUTPUT
+            echo "Tag $EXISTING already exists - skipping"
+          else
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
+            echo "No existing version tags found - will create v1.0.0"
+          fi
+
+      - name: Create and push v1.0.0 tag
+        if: steps.check.outputs.tag_exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag v1.0.0
+          git push origin v1.0.0
+          echo "Created and pushed tag v1.0.0"
+
+      - name: Summary
+        run: |
+          echo "## Initial Release" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check.outputs.tag_exists }}" == "true" ]; then
+            echo "**Skipped:** Tag \`${{ steps.check.outputs.existing_tag }}\` already exists." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "No action taken. Delete this workflow if no longer needed." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Tag \`v1.0.0\` created and pushed.**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "release.yml will now build and push:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "ghcr.io/schmiddim/grafana-azure-blobstore-backup:v1.0.0" >> $GITHUB_STEP_SUMMARY
+            echo "ghcr.io/schmiddim/grafana-azure-blobstore-backup:latest" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi

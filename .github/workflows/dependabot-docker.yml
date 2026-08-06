@@ -1,14 +1,16 @@
-# Auto-merge Dependabot PRs and push Docker image on dependency updates
+# Auto-merge Dependabot PRs and trigger a patch-version release
 #
 # This workflow:
-# 1. Auto-approves and merges Dependabot PRs
-# 2. Builds and pushes Docker image after merge
+# 1. Auto-approves and merges Dependabot PRs (skips workflow file changes)
+# 2. After a Dockerfile change is merged to main: bumps the patch version,
+#    pushes a new Git tag → triggers release.yml to build & push to GHCR
 #
-# Required secrets:
-#   - DOCKERHUB_USERNAME: Docker Hub username
-#   - DOCKERHUB_TOKEN: Docker Hub access token
+# Version bumping:
+#   Dependabot (base image updates) → Patch bump: v1.0.X
+#
+# No additional secrets required beyond GITHUB_TOKEN.
 
-name: Dependabot Auto-Merge & Docker Push
+name: Dependabot Auto-Merge & Patch Release
 
 on:
   pull_request:
@@ -17,12 +19,12 @@ on:
     branches: [main]
     paths:
       - 'Dockerfile'
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:  # Manual trigger for testing
 
 permissions:
   contents: write
   pull-requests: write
-#  workflows: write
+  packages: write
 
 jobs:
   # ==========================================================================
@@ -31,10 +33,10 @@ jobs:
   auto-merge:
     runs-on: ubuntu-latest
     if: github.actor == 'dependabot[bot]' && github.event_name == 'pull_request'
-    
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Check if PR contains workflow changes
         id: check-workflows
@@ -55,7 +57,7 @@ jobs:
       - name: Dependabot metadata
         if: steps.check-workflows.outputs.has_workflow_changes == 'false'
         id: metadata
-        uses: dependabot/fetch-metadata@v3
+        uses: dependabot/fetch-metadata@v2
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
@@ -81,49 +83,43 @@ jobs:
           echo "This PR contains workflow file changes and requires manual review." >> $GITHUB_STEP_SUMMARY
 
   # ==========================================================================
-  # Job 2: Build and push Docker image after merge
+  # Job 2: Bump patch version and push tag after Dockerfile merge
   # ==========================================================================
-  docker-build-push:
+  patch-release:
     runs-on: ubuntu-latest
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
-    
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Set up QEMU for multi-arch builds
-        uses: docker/setup-qemu-action@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v4
+        uses: actions/checkout@v4
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          fetch-depth: 0  # Required to read all tags
 
-      - name: Generate date tag
-        id: date
-        run: echo "tag=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+      - name: Bump patch version and push tag
+        id: bump
+        run: |
+          # Get latest semver tag (default v0.0.0 if none exists)
+          LATEST=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || echo "v0.0.0")
+          echo "Latest tag: $LATEST"
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            schmiddim/grafana-azure-blobstore-backup:${{ steps.date.outputs.tag }}
-            schmiddim/grafana-azure-blobstore-backup:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          MAJOR=$(echo "$LATEST" | cut -d. -f1 | tr -d 'v')
+          MINOR=$(echo "$LATEST" | cut -d. -f2)
+          PATCH=$(echo "$LATEST" | cut -d. -f3)
+
+          NEW_PATCH=$((PATCH + 1))
+          NEW_TAG="v${MAJOR}.${MINOR}.${NEW_PATCH}"
+          echo "New tag: $NEW_TAG"
+          echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$NEW_TAG"
+          git push origin "$NEW_TAG"
 
       - name: Summary
         run: |
-          echo "## Docker Image Published" >> $GITHUB_STEP_SUMMARY
+          echo "## Patch Release Triggered" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Image:** \`schmiddim/grafana-azure-blobstore-backup\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ steps.date.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "**New tag:** \`${{ steps.bump.outputs.new_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "release.yml will build and push \`ghcr.io/schmiddim/grafana-azure-blobstore-backup:${{ steps.bump.outputs.new_tag }}\`" >> $GITHUB_STEP_SUMMARY

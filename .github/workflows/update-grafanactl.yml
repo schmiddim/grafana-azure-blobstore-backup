@@ -1,13 +1,15 @@
-# Automatic grafanactl version updates
+# Automatic grafanactl version updates with minor-version release
 #
 # This workflow:
 # 1. Checks weekly for new grafanactl releases
 # 2. Updates the Dockerfile ARG if a new version is available
-# 3. Commits directly to main and triggers Docker build
+# 3. Commits directly to main
+# 4. Bumps the minor version and pushes a Git tag → triggers release.yml
 #
-# Required secrets:
-#   - DOCKERHUB_USERNAME: Docker Hub username
-#   - DOCKERHUB_TOKEN: Docker Hub access token
+# Version bumping:
+#   grafanactl update → Minor bump: v1.X.0  (patch resets to 0)
+#
+# No additional secrets required beyond GITHUB_TOKEN.
 
 name: Update grafanactl
 
@@ -22,10 +24,12 @@ permissions:
 jobs:
   update-grafanactl:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required to read all tags
 
       - name: Get latest grafanactl version
         id: latest
@@ -61,7 +65,7 @@ jobs:
           echo "Updated Dockerfile:"
           grep "ARG GRAFANACTL_VERSION" Dockerfile
 
-      - name: Commit and push changes
+      - name: Commit changes
         if: steps.check.outputs.needs_update == 'true'
         run: |
           git config user.name "github-actions[bot]"
@@ -70,18 +74,43 @@ jobs:
           git commit -m "chore(deps): update grafanactl to ${{ steps.latest.outputs.version }}"
           git push
 
-      # Docker build is triggered by the push to main via dependabot-docker.yml
+      - name: Bump minor version and push tag
+        if: steps.check.outputs.needs_update == 'true'
+        id: bump
+        run: |
+          # Re-fetch tags after the commit push
+          git fetch --tags
+
+          # Get latest semver tag (default v0.0.0 if none exists)
+          LATEST_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+
+          MAJOR=$(echo "$LATEST_TAG" | cut -d. -f1 | tr -d 'v')
+          MINOR=$(echo "$LATEST_TAG" | cut -d. -f2)
+
+          NEW_MINOR=$((MINOR + 1))
+          NEW_TAG="v${MAJOR}.${NEW_MINOR}.0"
+          echo "New tag: $NEW_TAG"
+          echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+
+          git tag "$NEW_TAG"
+          git push origin "$NEW_TAG"
+
       - name: Summary
         run: |
           echo "## grafanactl Version Check" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| | Version |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| Current | \`${{ steps.current.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Previous | \`${{ steps.current.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Latest | \`${{ steps.latest.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.check.outputs.needs_update }}" == "true" ]; then
-            echo "**Status:** Updated and pushed to main. Docker build will be triggered." >> $GITHUB_STEP_SUMMARY
+            echo "**Status:** Updated and committed to main." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Release tag:** \`${{ steps.bump.outputs.new_tag }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "release.yml will build and push \`ghcr.io/schmiddim/grafana-azure-blobstore-backup:${{ steps.bump.outputs.new_tag }}\`" >> $GITHUB_STEP_SUMMARY
           else
             echo "**Status:** Already up to date. No changes made." >> $GITHUB_STEP_SUMMARY
           fi
