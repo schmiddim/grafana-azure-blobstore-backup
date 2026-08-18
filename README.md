@@ -2,12 +2,12 @@
 
 [![Docker Hub](https://img.shields.io/docker/v/schmiddim/grafana-azure-blobstore-backup?label=Docker%20Hub&logo=docker)](https://hub.docker.com/r/schmiddim/grafana-azure-blobstore-backup)
 
-Container image with Azure CLI and grafanactl for Grafana 12+ dashboard operations.
+Container image with Azure CLI and gcx for Grafana 12+ dashboard operations.
 
 ## Contents
 
 - **Azure CLI** - for Azure Blob Storage operations
-- **grafanactl** - official Grafana CLI for dashboard export/import
+- **gcx** - official Grafana CLI for dashboard export/import
 - **jq** - JSON processing
 - **bash** - scripting
 
@@ -29,7 +29,7 @@ docker run -it --rm \
   grafana-backup:latest
 
 # Inside container:
-grafanactl resources list dashboards
+gcx resources list dashboards
 az storage blob list --account-name xxx --container-name xxx
 ```
 
@@ -37,7 +37,7 @@ az storage blob list --account-name xxx --container-name xxx
 
 Configured for automatic updates of:
 - Azure CLI base image
-- grafanactl version
+- gcx version
 
 ## Docker
 
