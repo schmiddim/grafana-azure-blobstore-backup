@@ -2,7 +2,7 @@
 #
 # Triggered by version tags (v*.*.*) created by:
 #   - dependabot-docker.yml  (Patch bump: v1.0.X  on Dockerfile dependency updates)
-#   - update-grafanactl.yml  (Minor bump: v1.X.0  on grafanactl updates)
+#   - update-gcx.yml  (Minor bump: v1.X.0  on gcx updates)
 #   - initial-release.yml    (v1.0.0 bootstrap)
 #
 # Publishes to: ghcr.io/schmiddim/grafana-azure-blobstore-backup
