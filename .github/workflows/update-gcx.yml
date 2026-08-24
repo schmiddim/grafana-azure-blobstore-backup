@@ -37,13 +37,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           LATEST=$(gh release view --repo grafana/gcx --json tagName -q .tagName)
+          LATEST="${LATEST#v}"  # strip leading 'v' to match Dockerfile format
           echo "version=$LATEST" >> $GITHUB_OUTPUT
           echo "Latest gcx version: $LATEST"
 
       - name: Get current version from Dockerfile
         id: current
         run: |
-          CURRENT=$(grep "^ARG gcx_VERSION=" Dockerfile | cut -d= -f2)
+          CURRENT=$(grep "^ARG GCX_VERSION=" Dockerfile | cut -d= -f2)
           echo "version=$CURRENT" >> $GITHUB_OUTPUT
           echo "Current gcx version: $CURRENT"
 
@@ -61,9 +62,9 @@ jobs:
       - name: Update Dockerfile
         if: steps.check.outputs.needs_update == 'true'
         run: |
-          sed -i "s/^ARG gcx_VERSION=.*/ARG gcx_VERSION=${{ steps.latest.outputs.version }}/" Dockerfile
+          sed -i "s/^ARG GCX_VERSION=.*/ARG GCX_VERSION=${{ steps.latest.outputs.version }}/" Dockerfile
           echo "Updated Dockerfile:"
-          grep "ARG gcx_VERSION" Dockerfile
+          grep "ARG GCX_VERSION" Dockerfile
 
       - name: Commit changes
         if: steps.check.outputs.needs_update == 'true'
