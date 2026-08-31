@@ -8,7 +8,7 @@
 # Stage 1: Download gcx binary
 # ============================================================================
 # Dependabot cannot track ARG versions - updated via update-gcx.yml workflow
-ARG GCX_VERSION=1.1.0
+ARG GCX_VERSION=1.2.0
 
 FROM alpine:3.24 AS downloader
 
